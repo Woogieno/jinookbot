@@ -4,6 +4,7 @@ import yt_dlp
 import asyncio
 import os
 from dotenv import load_dotenv
+from discord import app_commands
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -46,6 +47,11 @@ class MusicView(discord.ui.View):
 @bot.event
 async def on_ready():
     print(f"봇 로그인: {bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"슬래시 커맨드 {len(synced)}개 동기화됨")
+    except Exception as e:
+        print(e)
 
 async def play_next(ctx, vc):
     global now_playing
@@ -78,8 +84,9 @@ async def play_song(ctx, vc, song):
     source = await discord.FFmpegOpusAudio.from_probe(url2)
     vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx, vc), bot.loop))
 
+    voice_channel_name = ctx.author.voice.channel.name if ctx.author.voice and ctx.author.voice.channel else "음성채널"
     embed = discord.Embed(
-        title="🇰🇷수다방🇰🇷 | 음악 재생중...",
+        title=f"🇰🇷{voice_channel_name}🇰🇷 | 음악 재생중...",
         description=f"[{title}]({webpage_url})",
         color=discord.Color.blue()
     )
@@ -132,5 +139,36 @@ async def repeat_cmd(ctx):
     global repeat
     repeat = not repeat
     await ctx.send(f"🔁 반복 {'활성화' if repeat else '비활성화'}")
+
+@bot.tree.command(name="play", description="유튜브에서 음악을 검색/재생합니다.")
+@app_commands.describe(search="검색어 또는 유튜브 URL")
+async def play_slash(interaction: discord.Interaction, search: str):
+    ctx = await commands.Context.from_interaction(interaction)
+    await play(ctx, search=search)
+    await interaction.response.send_message("음악 재생 명령이 실행되었습니다.", ephemeral=True)
+
+@bot.tree.command(name="skip", description="다음 곡으로 스킵합니다.")
+async def skip_slash(interaction: discord.Interaction):
+    ctx = await commands.Context.from_interaction(interaction)
+    await skip(ctx)
+    await interaction.response.send_message("스킵 명령이 실행되었습니다.", ephemeral=True)
+
+@bot.tree.command(name="stop", description="음악을 정지하고 나갑니다.")
+async def stop_slash(interaction: discord.Interaction):
+    ctx = await commands.Context.from_interaction(interaction)
+    await stop(ctx)
+    await interaction.response.send_message("정지 명령이 실행되었습니다.", ephemeral=True)
+
+@bot.tree.command(name="queue", description="대기열을 확인합니다.")
+async def queue_slash(interaction: discord.Interaction):
+    ctx = await commands.Context.from_interaction(interaction)
+    await queue_cmd(ctx)
+    await interaction.response.send_message("대기열 확인 명령이 실행되었습니다.", ephemeral=True)
+
+@bot.tree.command(name="repeat", description="반복 재생을 토글합니다.")
+async def repeat_slash(interaction: discord.Interaction):
+    ctx = await commands.Context.from_interaction(interaction)
+    await repeat_cmd(ctx)
+    await interaction.response.send_message("반복 토글 명령이 실행되었습니다.", ephemeral=True)
 
 bot.run(TOKEN)
