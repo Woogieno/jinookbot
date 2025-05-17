@@ -62,6 +62,21 @@ async def play_next(ctx, vc):
         await play_song(ctx, vc, now_playing)
     else:
         now_playing = None
+
+        # 5분 대기: 사람이 없거나, 곡이 추가되지 않으면 퇴장
+        def is_someone_in_channel():
+            return vc.channel and len([m for m in vc.channel.members if not m.bot]) > 0  # 봇 제외
+
+        for _ in range(30):  # 30초 동안 1초마다 체크
+            await asyncio.sleep(1)
+            if queue:
+                return await play_next(ctx, vc)  # 곡이 추가되면 바로 재생
+            if not is_someone_in_channel():
+                await ctx.send("아무도 없어 봇이 음성 채널에서 퇴장합니다.")
+                await vc.disconnect()
+                return
+        # 30초가 지나도 아무도 없고, 곡도 없으면 퇴장
+        await ctx.send("30초 동안 아무도 없거나, 노래가 추가되지 않아 봇이 음성 채널에서 퇴장합니다.")
         await vc.disconnect()
 
 async def play_song(ctx, vc, song):
@@ -143,32 +158,37 @@ async def repeat_cmd(ctx):
 @bot.tree.command(name="play", description="유튜브에서 음악을 검색/재생합니다.")
 @app_commands.describe(search="검색어 또는 유튜브 URL")
 async def play_slash(interaction: discord.Interaction, search: str):
+    await interaction.response.defer()
     ctx = await commands.Context.from_interaction(interaction)
     await play(ctx, search=search)
-    await interaction.response.send_message("음악 재생 명령이 실행되었습니다.", ephemeral=True)
+    await interaction.followup.send("음악 재생 명령이 실행되었습니다.")
 
 @bot.tree.command(name="skip", description="다음 곡으로 스킵합니다.")
 async def skip_slash(interaction: discord.Interaction):
+    await interaction.response.defer()
     ctx = await commands.Context.from_interaction(interaction)
     await skip(ctx)
-    await interaction.response.send_message("스킵 명령이 실행되었습니다.", ephemeral=True)
+    await interaction.followup.send("스킵 명령이 실행되었습니다.")
 
 @bot.tree.command(name="stop", description="음악을 정지하고 나갑니다.")
 async def stop_slash(interaction: discord.Interaction):
+    await interaction.response.defer()
     ctx = await commands.Context.from_interaction(interaction)
     await stop(ctx)
-    await interaction.response.send_message("정지 명령이 실행되었습니다.", ephemeral=True)
+    await interaction.followup.send("정지 명령이 실행되었습니다.")
 
 @bot.tree.command(name="queue", description="대기열을 확인합니다.")
 async def queue_slash(interaction: discord.Interaction):
+    await interaction.response.defer()
     ctx = await commands.Context.from_interaction(interaction)
     await queue_cmd(ctx)
-    await interaction.response.send_message("대기열 확인 명령이 실행되었습니다.", ephemeral=True)
+    await interaction.followup.send("대기열 확인 명령이 실행되었습니다.")
 
 @bot.tree.command(name="repeat", description="반복 재생을 토글합니다.")
 async def repeat_slash(interaction: discord.Interaction):
+    await interaction.response.defer()
     ctx = await commands.Context.from_interaction(interaction)
     await repeat_cmd(ctx)
-    await interaction.response.send_message("반복 토글 명령이 실행되었습니다.", ephemeral=True)
+    await interaction.followup.send("반복 토글 명령이 실행되었습니다.")
 
 bot.run(TOKEN)
